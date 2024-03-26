@@ -10,6 +10,7 @@ User = get_user_model()
 
 
 class CustomUserViewSet(DjoserUserViewSet):
+    permission_classes = [permissions.AllowAny]
     serializer_class = CustomUserSerializer
 
     def get_queryset(self):
@@ -54,5 +55,3 @@ class CustomUserViewSet(DjoserUserViewSet):
                 return Response(status=status.HTTP_204_NO_CONTENT)
             else:
                 return Response({"detail": "Subscription not found."}, status=status.HTTP_404_NOT_FOUND)
-
-

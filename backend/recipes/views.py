@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, mixins, status, response, decorators
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.viewsets import GenericViewSet
 from django.shortcuts import get_object_or_404
 from .models import Recipe, ShoppingList, Favorite
@@ -13,14 +14,22 @@ class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = (DjangoFilterBackend,)
+    filterset_fields = ('author', 'tags')
 
     def get_queryset(self):
         queryset = super().get_queryset()
         tags = self.request.query_params.getlist('tags')
+        author = self.request.query_params.get('author')
+
         if tags:
             queryset = queryset.filter(tags__slug__in=tags).distinct()
-        return queryset
 
+        if author:
+            queryset = queryset.filter(author__id=author)
+
+        return queryset
+    
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 

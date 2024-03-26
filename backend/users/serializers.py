@@ -15,10 +15,16 @@ class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'email', 'username', 'first_name', 'last_name', 'is_subscribed']
-    
+
     def get_is_subscribed(self, obj):
         request_user = self.context.get('request').user
         return UserFollow.objects.filter(user_from=request_user, user_to=obj).exists() if request_user.is_authenticated else False
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if not self.context.get('request').user.is_authenticated:
+            ret.pop('is_subscribed', None)
+        return ret
 
 
 class UserFollowSerializer(serializers.ModelSerializer):
@@ -50,7 +56,7 @@ class CustomUserCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'username', 'password', 'first_name', 'last_name']
+        fields = ['id', 'email', 'username', 'password', 'first_name', 'last_name']
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
