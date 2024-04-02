@@ -1,37 +1,66 @@
-from rest_framework import viewsets, permissions, mixins, status, response, decorators
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.viewsets import GenericViewSet
-from django.shortcuts import get_object_or_404
-from .models import Recipe, ShoppingList, Favorite
-from .serializers import RecipeSerializer, FavoriteSerializer, ShoppingListSerializer
-from .permissions import IsOwnerOrReadOnly, IsAdminOrReadOnly
+from django.db.models import Prefetch
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+
+from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from django_filters.rest_framework import DjangoFilterBackend
+
+from .filters import RecipeFilter
+from .models import Recipe, ShoppingList, Favorite, RecipeIngredient
+from .permissions import IsOwnerOrReadOnly
+from .serializers import RecipeSerializer, SimpleRecipeSerializer
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.AllowAny]
     filter_backends = (DjangoFilterBackend,)
-    filterset_fields = ('author', 'tags')
+    filterset_class = RecipeFilter
+
+    def get_serializer_context(self):
+        context = super(RecipeViewSet, self).get_serializer_context()
+        context.update({"request": self.request})
+        return context
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        tags = self.request.query_params.getlist('tags')
-        author = self.request.query_params.get('author')
+        user = self.request.user
+        queryset = super().get_queryset().prefetch_related(
+            Prefetch(
+                'recipe_ingredients',
+                queryset=RecipeIngredient.objects.select_related('ingredient'))
+        )
+        tag_slugs = self.request.query_params.getlist('tags')
+        if tag_slugs:
+            queryset = queryset.filter(tags__slug__in=tag_slugs).distinct()
+        is_favorited = self.request.query_params.get('is_favorited')
+        if user.is_authenticated and is_favorited is not None:
+            if is_favorited.lower() in ['true', '1']:
+                queryset = queryset.filter(in_favorites__user=user)
+            else:
+                queryset = queryset.exclude(in_favorites__user=user)
+        is_in_shopping_cart = self.request.query_params.get(
+            'is_in_shopping_cart'
+            )
+        if user.is_authenticated and is_in_shopping_cart is not None:
+            if is_in_shopping_cart.lower() in ['true', '1']:
+                queryset = queryset.filter(in_shopping_list__user=user)
+            else:
+                queryset = queryset.exclude(in_shopping_list__user=user)
+        return queryset.distinct()
 
-        if tags:
-            queryset = queryset.filter(tags__slug__in=tags).distinct()
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
 
-        if author:
-            queryset = queryset.filter(author__id=author)
-
-        return queryset
-    
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
@@ -44,83 +73,98 @@ class RecipeViewSet(viewsets.ModelViewSet):
             permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
 
-    @decorators.action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=False, methods=['get'],
+            permission_classes=[permissions.IsAuthenticated])
     def download_shopping_cart(self, request, *args, **kwargs):
-        shopping_list_items = ShoppingList.objects.filter(user=request.user).prefetch_related('recipe__ingredients__ingredient')
+        shopping_list_items = (ShoppingList.objects.filter(user=request.user)
+                               .select_related('recipe')
+                               .prefetch_related('recipe__recipe_ingredients'))
         ingredients = {}
 
         for item in shopping_list_items:
-            for recipeingredient in item.recipe.ingredients.all():
-                ingredient_name = recipeingredient.ingredient.name
-                amount = recipeingredient.amount
-                measurement_unit = recipeingredient.ingredient.measurement_unit
-                if ingredient_name not in ingredients:
-                    ingredients[ingredient_name] = {'amount': amount, 'measurement_unit': measurement_unit}
+            for recipe_ingredient in item.recipe.recipe_ingredients.all():
+                ingredient = recipe_ingredient.ingredient
+                amount = recipe_ingredient.amount
+                if ingredient.name not in ingredients:
+                    ingredients[ingredient.name] = {
+                        'amount': amount,
+                        'measurement_unit': ingredient.measurement_unit}
                 else:
-                    ingredients[ingredient_name]['amount'] += amount
+                    ingredients[ingredient.name]['amount'] += amount
 
         content = "\n".join([
-            f"{ingredient} - {details['amount']} {details['measurement_unit']}"
-            for ingredient, details in ingredients.items()
+            f"{name} - {info['amount']} "
+            f"{info['measurement_unit']}"
+            for name, info in ingredients.items()
         ])
         response = HttpResponse(content, content_type='text/plain')
-        response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
+        response['Content-Disposition'] = (
+            'attachment; filename="shopping_list.txt"')
         return response
 
 
-class FavoriteViewSet(mixins.ListModelMixin,
-                      mixins.CreateModelMixin,
-                      mixins.DestroyModelMixin,
-                      GenericViewSet):
-    serializer_class = FavoriteSerializer
-    permission_classes = [permissions.IsAuthenticated]
+class ShoppingCartView(APIView):
+    permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        return Favorite.objects.filter(user=self.request.user, recipe__id=self.kwargs['recipe_pk'])
-
-    @action(methods=['post'], detail=True, permission_classes=[permissions.IsAuthenticated])
-    def add(self, request, pk=None):
-        recipe = get_object_or_404(Recipe, pk=pk)
-        favorite, created = Favorite.objects.get_or_create(user=request.user, recipe=recipe)
+    def post(self, request, recipe_pk=None):
+        try:
+            recipe = Recipe.objects.get(pk=recipe_pk)
+        except Recipe.DoesNotExist:
+            return Response({'detail': 'Recipe does not exist.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        shopping_list_item, created = ShoppingList.objects.get_or_create(
+            user=request.user,
+            recipe=recipe)
+        
         if created:
-            return Response({'status': 'Added to favorites'})
+            serializer = SimpleRecipeSerializer(recipe, context={
+                'request': request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
-            return Response({'status': 'Already in favorites'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Already in shopping cart'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-    @action(methods=['delete'], detail=True, permission_classes=[permissions.IsAuthenticated])
-    def remove(self, request, pk=None):
-        recipe = get_object_or_404(Recipe, pk=pk)
-        affected_rows = Favorite.objects.filter(user=request.user, recipe=recipe).delete()
-        if affected_rows:
-            return Response({'status': 'Removed from favorites'})
-        else:
-            return Response({'status': 'Recipe was not in favorites'}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class ShoppingListViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def list(self, request, *args, **kwargs):
-        queryset = ShoppingList.objects.filter(user=request.user).prefetch_related('recipe__ingredients')
-        serializer = ShoppingListSerializer(queryset, many=True)
-        return response.Response(serializer.data)
-
-    @action(methods=['post'], detail=True)
-    def add_to_cart(self, request, *args, **kwargs):
-        recipe_pk = kwargs.get('pk') 
+    def delete(self, request, recipe_pk=None):
         recipe = get_object_or_404(Recipe, pk=recipe_pk)
-        _, created = ShoppingList.objects.get_or_create(user=request.user, recipe=recipe)
+        operation, _ = ShoppingList.objects.filter(
+            user=request.user,
+            recipe=recipe).delete()
+        if operation:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({'detail': 'Recipe was not in shopping cart'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+
+class FavoriteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, recipe_pk=None):
+        try:
+            recipe = Recipe.objects.get(pk=recipe_pk)
+        except Recipe.DoesNotExist:
+            return Response({'detail': 'Recipe does not exist.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+    
+        favorite_item, created = Favorite.objects.get_or_create(
+            user=request.user,
+            recipe=recipe)
+    
         if created:
-            return response.Response({'status': 'Added to shopping cart'})
+            serializer = SimpleRecipeSerializer(recipe,
+                                                context={'request': request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
-            return response.Response({'status': 'Already in shopping cart'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Already in favorites'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-    @action(methods=['delete'], detail=True)
-    def remove_from_cart(self, request, *args, **kwargs):
-        recipe_pk = kwargs.get('pk')
+    def delete(self, request, recipe_pk=None):
         recipe = get_object_or_404(Recipe, pk=recipe_pk)
-        affected_rows = ShoppingList.objects.filter(user=request.user, recipe=recipe).delete()
-        if affected_rows[0] > 0:
-            return response.Response({'status': 'Removed from shopping cart'})
+        operation, _ = Favorite.objects.filter(user=request.user,
+                                               recipe=recipe).delete()
+        if operation:
+            return Response(status=status.HTTP_204_NO_CONTENT)
         else:
-            return response.Response({'status': 'Recipe was not in shopping cart'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Recipe was not in favorites'},
+                            status=status.HTTP_400_BAD_REQUEST)

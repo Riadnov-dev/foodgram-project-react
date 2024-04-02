@@ -1,10 +1,14 @@
-from djoser.views import UserViewSet as DjoserUserViewSet
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework import status, permissions
-from .models import UserFollow
-from .serializers import CustomUserSerializer, UserFollowSerializer
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
+from djoser.views import UserViewSet as DjoserUserViewSet
+from rest_framework import status, permissions
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from .models import UserFollow
+from .serializers import CustomUserSerializer, UserSubscriptionSerializer
+
 
 User = get_user_model()
 
@@ -13,45 +17,92 @@ class CustomUserViewSet(DjoserUserViewSet):
     permission_classes = [permissions.AllowAny]
     serializer_class = CustomUserSerializer
 
+    def get_permissions(self):
+        if self.action in ['create', 'list', 'retrieve']:
+            permission_classes = [permissions.AllowAny]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
     def get_queryset(self):
         if self.action == 'subscriptions':
             user = self.request.user
-            return UserFollow.objects.filter(user_from=user).select_related('user_to').order_by('-created')
+            return (UserFollow.objects.filter(user_from=user)
+                    .select_related('user_to').order_by('-created')
+                    )
         return super().get_queryset()
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
-    def subscriptions(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        page = self.paginate_queryset(queryset)
+    @action(detail=False, methods=['get'],
+            permission_classes=[permissions.IsAuthenticated],
+            url_path='subscriptions')
+    def subscriptions(self, request):
+        user_ids = (UserFollow.objects.filter(user_from=request.user)
+                    .values_list('user_to', flat=True))
+        users = User.objects.filter(id__in=user_ids)
+
+        recipes_limit = request.query_params.get('recipes_limit')
+        try:
+            recipes_limit = (int(recipes_limit) if recipes_limit
+                             is not None else None)
+        except ValueError:
+            recipes_limit = None
+
+        page = self.paginate_queryset(users)
         if page is not None:
-            serializer = UserFollowSerializer(page, many=True, context={'request': request})
+            serializer = UserSubscriptionSerializer(
+                page,
+                many=True,
+                context={
+                        'request': request,
+                        'recipes_limit': recipes_limit}
+                        )
             return self.get_paginated_response(serializer.data)
-        serializer = UserFollowSerializer(queryset, many=True, context={'request': request})
+
+        serializer = UserSubscriptionSerializer(
+            users,
+            many=True,
+            context={'request': request,
+                     'recipes_limit': recipes_limit})
         return Response(serializer.data)
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='subscribe')
-    def subscribe(self, request, pk=None):
-        return self._manage_subscription(request, pk, True)
+    @action(detail=True, methods=['post', 'delete'],
+            permission_classes=[IsAuthenticated], url_path='subscribe')
+    def manage_subscription(self, request, id=None):
+        user_to = get_object_or_404(User, pk=id)
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='unsubscribe')
-    def unsubscribe(self, request, pk=None):
-        return self._manage_subscription(request, pk, False)
-
-    def _manage_subscription(self, request, pk, is_subscribe):
-        user_to = get_object_or_404(User, pk=pk)
         if user_to == request.user:
-            return Response({"detail": "You cannot subscribe to yourself."}, status=status.HTTP_400_BAD_REQUEST)
-
-        if is_subscribe:
-            _, created = UserFollow.objects.get_or_create(user_from=request.user, user_to=user_to)
+            return Response(
+                {"detail": "You cannot subscribe or unsubscribe to yourself."},
+                status=status.HTTP_400_BAD_REQUEST)
+        if request.method == 'POST':
+            _, created = UserFollow.objects.get_or_create(
+                user_from=request.user,
+                user_to=user_to)
             if created:
-                return Response(status=status.HTTP_201_CREATED)
+                recipes_limit = request.query_params.get('recipes_limit')
+                context = {'request': request}
+                if recipes_limit:
+                    try:
+                        context['recipes_limit'] = int(recipes_limit)
+                    except ValueError:
+                        pass
+                return Response(UserSubscriptionSerializer(
+                    user_to,
+                    context=context).data,
+                    status=status.HTTP_201_CREATED)
             else:
-                return Response({"detail": "Already subscribed."}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            subscription = UserFollow.objects.filter(user_from=request.user, user_to=user_to)
+                return Response(
+                    {"detail": "Already subscribed."},
+                    status=status.HTTP_400_BAD_REQUEST)
+
+        elif request.method == 'DELETE':
+            subscription = UserFollow.objects.filter(
+                user_from=request.user,
+                user_to=user_to)
             if subscription.exists():
                 subscription.delete()
                 return Response(status=status.HTTP_204_NO_CONTENT)
             else:
-                return Response({"detail": "Subscription not found."}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"detail": "Subscription not found."},
+                    status=status.HTTP_400_BAD_REQUEST)
