@@ -1,4 +1,4 @@
-from rest_framework import viewsets, filters, permissions
+from rest_framework import viewsets, permissions
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Ingredient
@@ -10,7 +10,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     permission_classes = [permissions.AllowAny]
-    filter_backends = [DjangoFilterBackend,]
+    filter_backends = [DjangoFilterBackend]
     pagination_class = None
-    search_fields = ['^name',]
+    search_fields = ['^name']
     filterset_class = IngredientFilter

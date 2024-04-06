@@ -44,8 +44,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             else:
                 queryset = queryset.exclude(in_favorites__user=user)
         is_in_shopping_cart = self.request.query_params.get(
-            'is_in_shopping_cart'
-            )
+            'is_in_shopping_cart')
         if user.is_authenticated and is_in_shopping_cart is not None:
             if is_in_shopping_cart.lower() in ['true', '1']:
                 queryset = queryset.filter(in_shopping_list__user=user)
@@ -112,11 +111,11 @@ class ShoppingCartView(APIView):
         except Recipe.DoesNotExist:
             return Response({'detail': 'Recipe does not exist.'},
                             status=status.HTTP_400_BAD_REQUEST)
-        
+
         shopping_list_item, created = ShoppingList.objects.get_or_create(
             user=request.user,
             recipe=recipe)
-        
+
         if created:
             serializer = SimpleRecipeSerializer(recipe, context={
                 'request': request})
@@ -146,11 +145,11 @@ class FavoriteView(APIView):
         except Recipe.DoesNotExist:
             return Response({'detail': 'Recipe does not exist.'},
                             status=status.HTTP_400_BAD_REQUEST)
-    
+
         favorite_item, created = Favorite.objects.get_or_create(
             user=request.user,
             recipe=recipe)
-    
+
         if created:
             serializer = SimpleRecipeSerializer(recipe,
                                                 context={'request': request})
