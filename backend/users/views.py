@@ -53,8 +53,8 @@ class CustomUserViewSet(DjoserUserViewSet):
                 page,
                 many=True,
                 context={
-                        'request': request,
-                        'recipes_limit': recipes_limit})
+                    'request': request,
+                    'recipes_limit': recipes_limit})
             return self.get_paginated_response(serializer.data)
 
         serializer = UserSubscriptionSerializer(

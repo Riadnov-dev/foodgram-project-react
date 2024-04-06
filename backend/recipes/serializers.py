@@ -162,8 +162,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 
         if 'cooking_time' in data and data['cooking_time'] < 1:
             raise serializers.ValidationError(
-                {"cooking_time": "Время приготовления должно быть больше нуля"}
-                )
+                {"cooking_time": "Время приготовления не должно быть нулевым"})
 
         return data
 
