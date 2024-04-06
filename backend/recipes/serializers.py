@@ -12,6 +12,7 @@ from .models import (
     ShoppingList,
     Tag,
 )
+from users.models import UserFollow
 
 
 class Base64ImageField(serializers.ImageField):
@@ -95,13 +96,20 @@ class RecipeSerializer(serializers.ModelSerializer):
         return False
 
     def get_author(self, obj):
+        request = self.context.get('request', None)
+        if request and request.user.is_authenticated:
+            is_subscribed = UserFollow.objects.filter(user_from=request.user,
+                                                      user_to=obj.author
+                                                      ).exists()
+        else:
+            is_subscribed = False
         return {
             "id": obj.author.id,
             "username": obj.author.username,
             "first_name": obj.author.first_name,
             "last_name": obj.author.last_name,
             "email": obj.author.email,
-            "is_subscribed": False
+            "is_subscribed": is_subscribed
         }
 
     def validate_tags(self, value):

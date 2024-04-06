@@ -43,3 +43,8 @@ CI/CD процесс настроен с использованием GitHub Act
 Выполняются команды для сборки статики и миграций.
 
 Детальную конфигурацию GitHub Actions можно найти в файле .github/workflows/main.yml.
+
+Админка
+Email: nriadnov@gmail.com
+Password: 123456789ln
+Domain: https://xahtep.freeddns.org/

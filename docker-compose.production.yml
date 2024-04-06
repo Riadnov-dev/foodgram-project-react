@@ -17,6 +17,7 @@ services:
     volumes:
       - static_volume:/backend_static
       - media_volume:/app/media
+      - ./ingredients.json:/app/ingredients.json
   frontend:
     image: nriadnov29/foodgram_frontend:latest
     env_file: .env
