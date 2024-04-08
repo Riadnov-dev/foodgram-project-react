@@ -129,8 +129,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             amount = ingredient_data.get('amount', 0)
             if amount > 10000:
                 raise serializers.ValidationError(
-                    'Количество каждого ингредиента не должно превышать 10000.'
-                    )
+                    'Количество ингредиента не должно превышать 10000.')
         if not value:
             raise serializers.ValidationError(
                 "Список ингредиентов не может быть пустым.")
