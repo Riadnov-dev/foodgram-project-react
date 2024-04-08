@@ -5,6 +5,7 @@ volumes:
   static:
   media:
   data:
+  docs:
 
 services:
   db:
@@ -37,6 +38,7 @@ services:
     volumes:
       - static:/staticfiles
       - media:/media
+      - ./docs:/app/docs
     ports:
       - "7000:80"
     depends_on:

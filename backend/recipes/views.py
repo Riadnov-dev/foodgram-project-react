@@ -29,7 +29,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = super().get_queryset().prefetch_related(
+        queryset = super().get_queryset().order_by('id').prefetch_related(
             Prefetch(
                 'recipe_ingredients',
                 queryset=RecipeIngredient.objects.select_related('ingredient'))
@@ -38,14 +38,19 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if tag_slugs:
             queryset = queryset.filter(tags__slug__in=tag_slugs).distinct()
         is_favorited = self.request.query_params.get('is_favorited')
-        if user.is_authenticated and is_favorited is not None:
+        is_in_shopping_cart = self.request.query_params.get(
+            'is_in_shopping_cart')
+
+        if not user.is_authenticated:
+            if is_favorited or is_in_shopping_cart:
+                return queryset.none()
+
+        if is_favorited is not None:
             if is_favorited.lower() in ['true', '1']:
                 queryset = queryset.filter(in_favorites__user=user)
             else:
                 queryset = queryset.exclude(in_favorites__user=user)
-        is_in_shopping_cart = self.request.query_params.get(
-            'is_in_shopping_cart')
-        if user.is_authenticated and is_in_shopping_cart is not None:
+        if is_in_shopping_cart is not None:
             if is_in_shopping_cart.lower() in ['true', '1']:
                 queryset = queryset.filter(in_shopping_list__user=user)
             else:

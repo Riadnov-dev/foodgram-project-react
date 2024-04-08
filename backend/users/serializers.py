@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from django.core.validators import RegexValidator
+from django.core.validators import RegexValidator, MaxLengthValidator
 from rest_framework import serializers
 
 from .models import UserFollow
@@ -48,7 +48,8 @@ class UserFollowSerializer(serializers.ModelSerializer):
 
 class CustomUserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True,
-                                     validators=[validate_password])
+                                     validators=[validate_password,
+                                                 MaxLengthValidator(150)])
     first_name = serializers.CharField(required=True, max_length=150)
     last_name = serializers.CharField(required=True, max_length=150)
     username = serializers.CharField(

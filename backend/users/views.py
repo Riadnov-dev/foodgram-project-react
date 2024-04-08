@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import UserFollow
+from .permissions import IsAuthenticatedAndOwner
 from .serializers import CustomUserSerializer, UserSubscriptionSerializer
 
 
@@ -18,7 +19,9 @@ class CustomUserViewSet(DjoserUserViewSet):
     serializer_class = CustomUserSerializer
 
     def get_permissions(self):
-        if self.action in ['create', 'list', 'retrieve']:
+        if self.action in ['update', 'partial_update', 'destroy']:
+            permission_classes = [IsAuthenticatedAndOwner]
+        elif self.action in ['create', 'list', 'retrieve']:
             permission_classes = [permissions.AllowAny]
         else:
             permission_classes = [permissions.IsAuthenticated]
@@ -30,7 +33,10 @@ class CustomUserViewSet(DjoserUserViewSet):
             return (UserFollow.objects.filter(user_from=user)
                     .select_related('user_to').order_by('-created')
                     )
-        return super().get_queryset()
+        elif self.action == 'list':
+            return User.objects.all()
+        else:
+            return super().get_queryset()
 
     @action(detail=False, methods=['get'],
             permission_classes=[permissions.IsAuthenticated],
