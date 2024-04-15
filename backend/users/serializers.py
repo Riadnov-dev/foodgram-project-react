@@ -23,12 +23,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
                                           ).exists() if request_user
                                            .is_authenticated else False)
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if not self.context.get('request').user.is_authenticated:
-            ret.pop('is_subscribed', None)
-        return ret
-
 
 class UserFollowSerializer(serializers.ModelSerializer):
     user_to = serializers.SlugRelatedField(slug_field='username',

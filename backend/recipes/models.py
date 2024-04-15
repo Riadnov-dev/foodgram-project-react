@@ -28,6 +28,7 @@ class Recipe(models.Model):
     cooking_time = models.PositiveIntegerField()
     ingredients = models.ManyToManyField(Ingredient, through=RecipeIngredient,
                                          related_name='recipes')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name

@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import status, permissions
 from rest_framework.decorators import action
@@ -9,7 +8,6 @@ from rest_framework.response import Response
 from .models import UserFollow
 from .permissions import IsAuthenticatedAndOwner
 from .serializers import CustomUserSerializer, UserSubscriptionSerializer
-
 
 User = get_user_model()
 
@@ -37,6 +35,24 @@ class CustomUserViewSet(DjoserUserViewSet):
             return User.objects.all()
         else:
             return super().get_queryset()
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if request.user.id != instance.id:
+            return Response({"detail": "You do not have permission."},
+                            status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        return Response({"detail": "Method 'PATCH' not allowed."},
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if request.user.id != instance.id:
+            return Response({"detail": "You do not have permission."},
+                            status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'],
             permission_classes=[permissions.IsAuthenticated],
@@ -73,7 +89,11 @@ class CustomUserViewSet(DjoserUserViewSet):
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[IsAuthenticated], url_path='subscribe')
     def manage_subscription(self, request, id=None):
-        user_to = get_object_or_404(User, pk=id)
+        try:
+            user_to = User.objects.get(pk=id)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."},
+                            status=status.HTTP_404_NOT_FOUND)
 
         if user_to == request.user:
             return Response(

@@ -1,6 +1,5 @@
 from django.db.models import Prefetch
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
@@ -13,12 +12,14 @@ from .filters import RecipeFilter
 from .models import Recipe, ShoppingList, Favorite, RecipeIngredient
 from .permissions import IsOwnerOrReadOnly
 from .serializers import RecipeSerializer, SimpleRecipeSerializer
+from .pagination import LimitPageNumberPagination
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     permission_classes = [permissions.AllowAny]
+    pagination_class = LimitPageNumberPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
@@ -29,7 +30,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = super().get_queryset().order_by('id').prefetch_related(
+        queryset = super().get_queryset().order_by('-created_at'
+                                                   ).prefetch_related(
             Prefetch(
                 'recipe_ingredients',
                 queryset=RecipeIngredient.objects.select_related('ingredient'))
@@ -41,20 +43,21 @@ class RecipeViewSet(viewsets.ModelViewSet):
         is_in_shopping_cart = self.request.query_params.get(
             'is_in_shopping_cart')
 
-        if not user.is_authenticated:
-            if is_favorited or is_in_shopping_cart:
-                return queryset.none()
+        if user.is_authenticated:
+            if is_favorited is not None:
+                if is_favorited.lower() in ['true', '1']:
+                    queryset = queryset.filter(in_favorites__user=user)
+                else:
+                    queryset = queryset.exclude(in_favorites__user=user)
+            if is_in_shopping_cart is not None:
+                if is_in_shopping_cart.lower() in ['true', '1']:
+                    queryset = queryset.filter(in_shopping_list__user=user)
+                else:
+                    queryset = queryset.exclude(in_shopping_list__user=user)
+        else:
+            if is_favorited in ['0', '1'] or is_in_shopping_cart in ['0', '1']:
+                pass
 
-        if is_favorited is not None:
-            if is_favorited.lower() in ['true', '1']:
-                queryset = queryset.filter(in_favorites__user=user)
-            else:
-                queryset = queryset.exclude(in_favorites__user=user)
-        if is_in_shopping_cart is not None:
-            if is_in_shopping_cart.lower() in ['true', '1']:
-                queryset = queryset.filter(in_shopping_list__user=user)
-            else:
-                queryset = queryset.exclude(in_shopping_list__user=user)
         return queryset.distinct()
 
     def create(self, request, *args, **kwargs):
@@ -118,23 +121,27 @@ class ShoppingCartView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         shopping_list_item, created = ShoppingList.objects.get_or_create(
-            user=request.user,
-            recipe=recipe)
+            user=request.user, recipe=recipe)
 
         if created:
-            serializer = SimpleRecipeSerializer(recipe, context={
-                'request': request})
+            serializer = SimpleRecipeSerializer(recipe,
+                                                context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response({'detail': 'Already in shopping cart'},
                             status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, recipe_pk=None):
-        recipe = get_object_or_404(Recipe, pk=recipe_pk)
-        operation, _ = ShoppingList.objects.filter(
-            user=request.user,
-            recipe=recipe).delete()
-        if operation:
+        try:
+            recipe = Recipe.objects.get(pk=recipe_pk)
+        except Recipe.DoesNotExist:
+            return Response({'detail': 'Recipe does not exist.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        shopping_list_item = ShoppingList.objects.filter(user=request.user,
+                                                         recipe=recipe)
+        if shopping_list_item.exists():
+            shopping_list_item.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:
             return Response({'detail': 'Recipe was not in shopping cart'},
@@ -152,8 +159,7 @@ class FavoriteView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         favorite_item, created = Favorite.objects.get_or_create(
-            user=request.user,
-            recipe=recipe)
+            user=request.user, recipe=recipe)
 
         if created:
             serializer = SimpleRecipeSerializer(recipe,
@@ -164,10 +170,16 @@ class FavoriteView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, recipe_pk=None):
-        recipe = get_object_or_404(Recipe, pk=recipe_pk)
-        operation, _ = Favorite.objects.filter(user=request.user,
-                                               recipe=recipe).delete()
-        if operation:
+        try:
+            recipe = Recipe.objects.get(pk=recipe_pk)
+        except Recipe.DoesNotExist:
+            return Response({'detail': 'Recipe does not exist.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        favorite_item = Favorite.objects.filter(user=request.user,
+                                                recipe=recipe)
+        if favorite_item.exists():
+            favorite_item.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:
             return Response({'detail': 'Recipe was not in favorites'},
