@@ -89,9 +89,8 @@ class CustomUserViewSet(DjoserUserViewSet):
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[IsAuthenticated], url_path='subscribe')
     def manage_subscription(self, request, id=None):
-        try:
-            user_to = User.objects.get(pk=id)
-        except User.DoesNotExist:
+        user_to = self.get_user_by_id(id)
+        if not user_to:
             return Response({"detail": "User not found."},
                             status=status.HTTP_404_NOT_FOUND)
 
@@ -99,35 +98,47 @@ class CustomUserViewSet(DjoserUserViewSet):
             return Response(
                 {"detail": "You cannot subscribe or unsubscribe to yourself."},
                 status=status.HTTP_400_BAD_REQUEST)
-        if request.method == 'POST':
-            _, created = UserFollow.objects.get_or_create(
-                user_from=request.user,
-                user_to=user_to)
-            if created:
-                recipes_limit = request.query_params.get('recipes_limit')
-                context = {'request': request}
-                if recipes_limit:
-                    try:
-                        context['recipes_limit'] = int(recipes_limit)
-                    except ValueError:
-                        pass
-                return Response(UserSubscriptionSerializer(
-                    user_to,
-                    context=context).data,
-                    status=status.HTTP_201_CREATED)
-            else:
-                return Response(
-                    {"detail": "Already subscribed."},
-                    status=status.HTTP_400_BAD_REQUEST)
 
+        if request.method == 'POST':
+            return self.handle_create_subscription(request, user_to)
         elif request.method == 'DELETE':
-            subscription = UserFollow.objects.filter(
-                user_from=request.user,
-                user_to=user_to)
-            if subscription.exists():
-                subscription.delete()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            else:
-                return Response(
-                    {"detail": "Subscription not found."},
-                    status=status.HTTP_400_BAD_REQUEST)
+            return self.handle_delete_subscription(request, user_to)
+
+    def get_user_by_id(self, id):
+        try:
+            return User.objects.get(pk=id)
+        except User.DoesNotExist:
+            return None
+
+    def handle_create_subscription(self, request, user_to):
+        _, created = UserFollow.objects.get_or_create(
+            user_from=request.user,
+            user_to=user_to)
+        if created:
+            recipes_limit = request.query_params.get('recipes_limit')
+            context = {'request': request}
+            if recipes_limit:
+                try:
+                    context['recipes_limit'] = int(recipes_limit)
+                except ValueError:
+                    pass
+            return Response(UserSubscriptionSerializer(
+                user_to,
+                context=context).data,
+                status=status.HTTP_201_CREATED)
+        else:
+            return Response(
+                {"detail": "Already subscribed."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+    def handle_delete_subscription(self, request, user_to):
+        subscription = UserFollow.objects.filter(
+            user_from=request.user,
+            user_to=user_to)
+        if subscription.exists():
+            subscription.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response(
+                {"detail": "Subscription not found."},
+                status=status.HTTP_400_BAD_REQUEST)
