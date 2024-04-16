@@ -13,6 +13,7 @@ class TagForm(forms.ModelForm):
         color = self.cleaned_data.get('color').lower()
         if not re.match(r'^#(?:[0-9a-fA-F]{3}){1,2}$', color):
             raise ValidationError(f'{color} is not a valid HEX color.')
-        if Tag.objects.filter(color=color).exclude(pk=self.instance.pk).exists():
+        if Tag.objects.filter(color=color).exclude(pk=self.instance.pk
+                                                   ).exists():
             raise ValidationError('This color is already in use.')
         return color

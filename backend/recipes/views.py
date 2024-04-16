@@ -177,7 +177,8 @@ class FavoriteView(APIView):
             return Response({'detail': 'Recipe does not exist.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        favorite_item, created = Favorite.objects.get_or_create(user=request.user, recipe=recipe)
+        favorite_item, created = Favorite.objects.get_or_create(user=request.user,
+                                                                recipe=recipe)
 
         if created:
             serializer = SimpleRecipeSerializer(recipe,
