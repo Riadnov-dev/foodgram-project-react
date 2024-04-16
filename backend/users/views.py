@@ -2,19 +2,29 @@ from django.contrib.auth import get_user_model
 from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import status, permissions
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import UserFollow
 from .permissions import IsAuthenticatedAndOwner
 from .serializers import CustomUserSerializer, UserSubscriptionSerializer
+from .pagination import LimitPageNumberPagination
 
 User = get_user_model()
+
+
+def validate_pk(pk):
+    try:
+        return int(pk)
+    except ValueError:
+        raise ValidationError('Invalid ID format. ID must be an integer.')
 
 
 class CustomUserViewSet(DjoserUserViewSet):
     permission_classes = [permissions.AllowAny]
     serializer_class = CustomUserSerializer
+    pagination_class = LimitPageNumberPagination
 
     def get_permissions(self):
         if self.action in ['update', 'partial_update', 'destroy']:
@@ -89,8 +99,13 @@ class CustomUserViewSet(DjoserUserViewSet):
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[IsAuthenticated], url_path='subscribe')
     def manage_subscription(self, request, id=None):
-        user_to = self.get_user_by_id(id)
-        if not user_to:
+        try:
+            pk = validate_pk(id)
+            user_to = User.objects.get(pk=pk)
+        except ValidationError as e:
+            return Response({'detail': str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
             return Response({"detail": "User not found."},
                             status=status.HTTP_404_NOT_FOUND)
 
@@ -104,16 +119,9 @@ class CustomUserViewSet(DjoserUserViewSet):
         elif request.method == 'DELETE':
             return self.handle_delete_subscription(request, user_to)
 
-    def get_user_by_id(self, id):
-        try:
-            return User.objects.get(pk=id)
-        except User.DoesNotExist:
-            return None
-
     def handle_create_subscription(self, request, user_to):
         _, created = UserFollow.objects.get_or_create(
-            user_from=request.user,
-            user_to=user_to)
+            user_from=request.user, user_to=user_to)
         if created:
             recipes_limit = request.query_params.get('recipes_limit')
             context = {'request': request}
@@ -123,22 +131,17 @@ class CustomUserViewSet(DjoserUserViewSet):
                 except ValueError:
                     pass
             return Response(UserSubscriptionSerializer(
-                user_to,
-                context=context).data,
-                status=status.HTTP_201_CREATED)
+                user_to, context=context).data, status=status.HTTP_201_CREATED)
         else:
-            return Response(
-                {"detail": "Already subscribed."},
-                status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Already subscribed."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
     def handle_delete_subscription(self, request, user_to):
-        subscription = UserFollow.objects.filter(
-            user_from=request.user,
-            user_to=user_to)
+        subscription = UserFollow.objects.filter(user_from=request.user,
+                                                 user_to=user_to)
         if subscription.exists():
             subscription.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:
-            return Response(
-                {"detail": "Subscription not found."},
-                status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Subscription not found."},
+                            status=status.HTTP_400_BAD_REQUEST)

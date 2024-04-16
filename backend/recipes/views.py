@@ -3,6 +3,7 @@ from django.http import HttpResponse
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -30,8 +31,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = super().get_queryset().order_by('-created_at'
-                                                   ).prefetch_related(
+        queryset = super().get_queryset().order_by('id').prefetch_related(
             Prefetch(
                 'recipe_ingredients',
                 queryset=RecipeIngredient.objects.select_related('ingredient'))
@@ -39,6 +39,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         tag_slugs = self.request.query_params.getlist('tags')
         if tag_slugs:
             queryset = queryset.filter(tags__slug__in=tag_slugs).distinct()
+
         is_favorited = self.request.query_params.get('is_favorited')
         is_in_shopping_cart = self.request.query_params.get(
             'is_in_shopping_cart')
@@ -47,17 +48,16 @@ class RecipeViewSet(viewsets.ModelViewSet):
             if is_favorited is not None:
                 if is_favorited.lower() in ['true', '1']:
                     queryset = queryset.filter(in_favorites__user=user)
-                else:
+                elif is_favorited == '0':
                     queryset = queryset.exclude(in_favorites__user=user)
             if is_in_shopping_cart is not None:
                 if is_in_shopping_cart.lower() in ['true', '1']:
                     queryset = queryset.filter(in_shopping_list__user=user)
-                else:
+                elif is_in_shopping_cart == '0':
                     queryset = queryset.exclude(in_shopping_list__user=user)
         else:
-            if is_favorited in ['0', '1'] or is_in_shopping_cart in ['0', '1']:
-                pass
-
+            if is_favorited == '1' or is_in_shopping_cart == '1':
+                return queryset.none()
         return queryset.distinct()
 
     def create(self, request, *args, **kwargs):
@@ -110,12 +110,23 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return response
 
 
+def validate_pk(pk):
+    try:
+        return int(pk)
+    except ValueError:
+        raise ValidationError('Invalid ID format. ID must be an integer.')
+
+
 class ShoppingCartView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, recipe_pk=None):
         try:
-            recipe = Recipe.objects.get(pk=recipe_pk)
+            pk = validate_pk(recipe_pk)
+            recipe = Recipe.objects.get(pk=pk)
+        except ValidationError as e:
+            return Response({'detail': str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
         except Recipe.DoesNotExist:
             return Response({'detail': 'Recipe does not exist.'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -133,7 +144,11 @@ class ShoppingCartView(APIView):
 
     def delete(self, request, recipe_pk=None):
         try:
-            recipe = Recipe.objects.get(pk=recipe_pk)
+            pk = validate_pk(recipe_pk)
+            recipe = Recipe.objects.get(pk=pk)
+        except ValidationError as e:
+            return Response({'detail': str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
         except Recipe.DoesNotExist:
             return Response({'detail': 'Recipe does not exist.'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -153,13 +168,16 @@ class FavoriteView(APIView):
 
     def post(self, request, recipe_pk=None):
         try:
-            recipe = Recipe.objects.get(pk=recipe_pk)
+            pk = validate_pk(recipe_pk)
+            recipe = Recipe.objects.get(pk=pk)
+        except ValidationError as e:
+            return Response({'detail': str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
         except Recipe.DoesNotExist:
             return Response({'detail': 'Recipe does not exist.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        favorite_item, created = Favorite.objects.get_or_create(
-            user=request.user, recipe=recipe)
+        favorite_item, created = Favorite.objects.get_or_create(user=request.user, recipe=recipe)
 
         if created:
             serializer = SimpleRecipeSerializer(recipe,
@@ -171,7 +189,11 @@ class FavoriteView(APIView):
 
     def delete(self, request, recipe_pk=None):
         try:
-            recipe = Recipe.objects.get(pk=recipe_pk)
+            pk = validate_pk(recipe_pk)
+            recipe = Recipe.objects.get(pk=pk)
+        except ValidationError as e:
+            return Response({'detail': str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
         except Recipe.DoesNotExist:
             return Response({'detail': 'Recipe does not exist.'},
                             status=status.HTTP_400_BAD_REQUEST)
