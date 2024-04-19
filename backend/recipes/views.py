@@ -80,9 +80,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     @action(
-            detail=False,
-            methods=['get'],
-            permission_classes=[IsAuthenticated])
+        detail=False,
+        methods=['get'],
+        permission_classes=[IsAuthenticated])
     def download_shopping_cart(self, request, *args, **kwargs):
         shopping_list_items = ShoppingList.objects.filter(user=request.user)
         ingredients = shopping_list_items.values(
@@ -95,8 +95,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 item['recipe__recipe_ingredients__ingredient__name'],
                 item['total_amount'],
                 item[
-                    'recipe__recipe_ingredients__ingredient__measurement_unit'
-                    ]
+                    'recipe__recipe_ingredients__ingredient__measurement_unit']
             )
             for item in ingredients
         ])
