@@ -1,4 +1,4 @@
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Sum
 from django.http import HttpResponse
 
 from rest_framework import viewsets, permissions, status
@@ -19,7 +19,6 @@ from .pagination import LimitPageNumberPagination
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
-    permission_classes = [permissions.AllowAny]
     pagination_class = LimitPageNumberPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
@@ -30,80 +29,78 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return context
 
     def get_queryset(self):
-        user = self.request.user
         queryset = super().get_queryset().order_by('id').prefetch_related(
             Prefetch(
                 'recipe_ingredients',
-                queryset=RecipeIngredient.objects.select_related('ingredient'))
+                queryset=RecipeIngredient.objects.select_related('ingredient')
+            )
         )
+        queryset = self.filter_by_tags(queryset)
+        return self.filter_by_favorites_and_cart(queryset)
+
+    def filter_by_tags(self, queryset):
         tag_slugs = self.request.query_params.getlist('tags')
         if tag_slugs:
             queryset = queryset.filter(tags__slug__in=tag_slugs).distinct()
+        return queryset
 
+    def filter_by_favorites_and_cart(self, queryset):
+        user = self.request.user
         is_favorited = self.request.query_params.get('is_favorited')
         is_in_shopping_cart = self.request.query_params.get(
             'is_in_shopping_cart')
 
         if user.is_authenticated:
-            if is_favorited is not None:
-                if is_favorited.lower() in ['true', '1']:
+            if is_favorited:
+                if is_favorited == '1':
                     queryset = queryset.filter(in_favorites__user=user)
                 elif is_favorited == '0':
                     queryset = queryset.exclude(in_favorites__user=user)
-            if is_in_shopping_cart is not None:
-                if is_in_shopping_cart.lower() in ['true', '1']:
+            if is_in_shopping_cart:
+                if is_in_shopping_cart == '1':
                     queryset = queryset.filter(in_shopping_list__user=user)
                 elif is_in_shopping_cart == '0':
                     queryset = queryset.exclude(in_shopping_list__user=user)
-        else:
-            if is_favorited == '1' or is_in_shopping_cart == '1':
-                return queryset.none()
+        elif is_favorited == '1' or is_in_shopping_cart == '1':
+            queryset = queryset.none()
         return queryset.distinct()
-
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
-
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             permission_classes = [permissions.AllowAny]
         elif self.action in ['create']:
-            permission_classes = [permissions.IsAuthenticated]
+            permission_classes = [IsAuthenticated]
         elif self.action in ['update', 'partial_update', 'destroy']:
             permission_classes = [IsOwnerOrReadOnly]
         else:
-            permission_classes = [permissions.IsAuthenticated]
+            permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
 
-    @action(detail=False, methods=['get'],
-            permission_classes=[permissions.IsAuthenticated])
+    @action(
+            detail=False,
+            methods=['get'],
+            permission_classes=[IsAuthenticated])
     def download_shopping_cart(self, request, *args, **kwargs):
-        shopping_list_items = (ShoppingList.objects.filter(user=request.user)
-                               .select_related('recipe')
-                               .prefetch_related('recipe__recipe_ingredients'))
-        ingredients = {}
-
-        for item in shopping_list_items:
-            for recipe_ingredient in item.recipe.recipe_ingredients.all():
-                ingredient = recipe_ingredient.ingredient
-                amount = recipe_ingredient.amount
-                if ingredient.name not in ingredients:
-                    ingredients[ingredient.name] = {
-                        'amount': amount,
-                        'measurement_unit': ingredient.measurement_unit}
-                else:
-                    ingredients[ingredient.name]['amount'] += amount
+        shopping_list_items = ShoppingList.objects.filter(user=request.user)
+        ingredients = shopping_list_items.values(
+            'recipe__recipe_ingredients__ingredient__name',
+            'recipe__recipe_ingredients__ingredient__measurement_unit'
+        ).annotate(total_amount=Sum('recipe__recipe_ingredients__amount'))
 
         content = "\n".join([
-            f"{name} - {info['amount']} "
-            f"{info['measurement_unit']}"
-            for name, info in ingredients.items()
+            "{} - {} {}".format(
+                item['recipe__recipe_ingredients__ingredient__name'],
+                item['total_amount'],
+                item[
+                    'recipe__recipe_ingredients__ingredient__measurement_unit'
+                    ]
+            )
+            for item in ingredients
         ])
+
         response = HttpResponse(content, content_type='text/plain')
         response['Content-Disposition'] = (
             'attachment; filename="shopping_list.txt"')

@@ -1,4 +1,5 @@
 import base64
+
 from django.db import transaction
 from django.core.files.base import ContentFile
 
@@ -10,8 +11,7 @@ from .models import (
     Recipe,
     RecipeIngredient,
     ShoppingList,
-    Tag,
-)
+    Tag,)
 from users.models import UserFollow
 
 
@@ -35,8 +35,9 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
 
 class RecipeSerializer(serializers.ModelSerializer):
     image = Base64ImageField(max_length=None, use_url=True)
-    tags = serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all(),
-                                              many=True)
+    tags = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(),
+        many=True)
     ingredients = RecipeIngredientSerializer(many=True, write_only=True)
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
@@ -59,8 +60,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                 'measurement_unit': (recipe_ingredient
                                      .ingredient
                                      .measurement_unit),
-                'amount': recipe_ingredient.amount
-            }
+                'amount': recipe_ingredient.amount}
             ingredients_data.append(ingredient_data)
         representation['ingredients'] = ingredients_data
 
@@ -109,8 +109,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             "first_name": obj.author.first_name,
             "last_name": obj.author.last_name,
             "email": obj.author.email,
-            "is_subscribed": is_subscribed
-        }
+            "is_subscribed": is_subscribed}
 
     def validate_tags(self, value):
         if not value:
@@ -171,6 +170,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
         ingredients_data = validated_data.pop('ingredients')
         tags_data = validated_data.pop('tags')

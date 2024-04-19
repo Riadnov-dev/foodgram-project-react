@@ -1,5 +1,7 @@
 from rest_framework import serializers
+
 from .models import Tag
+from .validators import validate_color
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -8,6 +10,4 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'color', 'slug']
 
     def validate_color(self, value):
-        if Tag.objects.filter(color=value).exists():
-            raise serializers.ValidationError("Этот цвет уже занят")
-        return value
+        return validate_color(value)

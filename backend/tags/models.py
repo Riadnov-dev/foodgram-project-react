@@ -1,16 +1,16 @@
-import re
 from django.db import models
-from django.core.exceptions import ValidationError
 
+from .validators import validate_color
 
-def validate_color(value):
-    if not re.match(r'^#(?:[0-9a-fA-F]{3}){1,2}$', value):
-        raise ValidationError(f'{value} is not a valid HEX color.')
+MAX_LENGTH_NAME = 100
+MAX_LENGTH_COLOR = 7
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    color = models.CharField(max_length=7, unique=True)
+    name = models.CharField(max_length=MAX_LENGTH_NAME, unique=True)
+    color = models.CharField(max_length=MAX_LENGTH_COLOR,
+                             unique=True,
+                             validators=[validate_color])
     slug = models.SlugField(unique=True)
 
     def __str__(self):

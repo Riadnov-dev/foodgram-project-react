@@ -1,7 +1,8 @@
 from django import forms
 from django.core.exceptions import ValidationError
+
 from .models import Tag
-import re
+from .validators import validate_color
 
 
 class TagForm(forms.ModelForm):
@@ -10,10 +11,9 @@ class TagForm(forms.ModelForm):
         fields = '__all__'
 
     def clean_color(self):
-        color = self.cleaned_data.get('color').lower()
-        if not re.match(r'^#(?:[0-9a-fA-F]{3}){1,2}$', color):
-            raise ValidationError(f'{color} is not a valid HEX color.')
-        if Tag.objects.filter(color=color).exclude(pk=self.instance.pk
-                                                   ).exists():
+        color = self.cleaned_data.get('color')
+        color = validate_color(color)
+        if Tag.objects.filter(color=color
+                              ).exclude(pk=self.instance.pk).exists():
             raise ValidationError('This color is already in use.')
         return color

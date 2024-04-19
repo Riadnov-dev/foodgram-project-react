@@ -1,9 +1,12 @@
 from django.db import models
 
+MAX_LENGTH_NAME = 200
+MAX_LENGTH_MEASUREMENT_UNIT = 50
+
 
 class Ingredient(models.Model):
-    name = models.CharField(max_length=200)
-    measurement_unit = models.CharField(max_length=50)
+    name = models.CharField(max_length=MAX_LENGTH_NAME)
+    measurement_unit = models.CharField(max_length=MAX_LENGTH_MEASUREMENT_UNIT)
 
     class Meta:
         unique_together = ('name', 'measurement_unit')
