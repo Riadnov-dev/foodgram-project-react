@@ -14,6 +14,7 @@ from .models import Recipe, ShoppingList, Favorite, RecipeIngredient
 from .permissions import IsOwnerOrReadOnly
 from .serializers import RecipeSerializer, SimpleRecipeSerializer
 from .pagination import LimitPageNumberPagination
+from foodgram.utils import validate_pk
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -72,17 +73,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve']:
             permission_classes = [permissions.AllowAny]
         elif self.action in ['create']:
-            permission_classes = [IsAuthenticated]
+            permission_classes = [permissions.IsAuthenticated]
         elif self.action in ['update', 'partial_update', 'destroy']:
             permission_classes = [IsOwnerOrReadOnly]
         else:
-            permission_classes = [IsAuthenticated]
+            permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
 
     @action(
         detail=False,
         methods=['get'],
-        permission_classes=[IsAuthenticated])
+        permission_classes=[permissions.IsAuthenticated])
     def download_shopping_cart(self, request, *args, **kwargs):
         shopping_list_items = ShoppingList.objects.filter(user=request.user)
         ingredients = shopping_list_items.values(
@@ -106,13 +107,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return response
 
 
-def validate_pk(pk):
-    try:
-        return int(pk)
-    except ValueError:
-        raise ValidationError('Invalid ID format. ID must be an integer.')
-
-
 class ShoppingCartView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -134,9 +128,8 @@ class ShoppingCartView(APIView):
             serializer = SimpleRecipeSerializer(recipe,
                                                 context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response({'detail': 'Already in shopping cart'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Already in shopping cart'},
+                        status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, recipe_pk=None):
         try:
@@ -154,9 +147,8 @@ class ShoppingCartView(APIView):
         if shopping_list_item.exists():
             shopping_list_item.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response({'detail': 'Recipe was not in shopping cart'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Recipe was not in shopping cart'},
+                        status=status.HTTP_400_BAD_REQUEST)
 
 
 class FavoriteView(APIView):
@@ -181,9 +173,8 @@ class FavoriteView(APIView):
             serializer = SimpleRecipeSerializer(recipe,
                                                 context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response({'detail': 'Already in favorites'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Already in favorites'},
+                        status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, recipe_pk=None):
         try:
@@ -201,6 +192,5 @@ class FavoriteView(APIView):
         if favorite_item.exists():
             favorite_item.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response({'detail': 'Recipe was not in favorites'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Recipe was not in favorites'},
+                        status=status.HTTP_400_BAD_REQUEST)

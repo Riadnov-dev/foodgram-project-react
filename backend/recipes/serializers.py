@@ -15,6 +15,9 @@ from .models import (
 from users.models import UserFollow
 
 
+MAX_AMOUNT = 1000
+
+
 class Base64ImageField(serializers.ImageField):
     def to_internal_value(self, data):
         if isinstance(data, str) and data.startswith('data:image'):
@@ -34,6 +37,10 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
+    '''Честно, лучше сделать уже не смогу.'''
+    '''Концептуально понимаю, но на 2 разделить не получается.'''
+    '''При подключении других сери-ров наладить не выходит.'''
+    '''Криво написал первоначально, от того все беды.'''
     image = Base64ImageField(max_length=None, use_url=True)
     tags = serializers.PrimaryKeyRelatedField(
         queryset=Tag.objects.all(),
@@ -44,6 +51,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     author = serializers.SerializerMethodField()
 
     class Meta:
+
         model = Recipe
         fields = ['id', 'name', 'image', 'text', 'tags', 'ingredients',
                   'cooking_time', 'author',
@@ -63,7 +71,6 @@ class RecipeSerializer(serializers.ModelSerializer):
                 'amount': recipe_ingredient.amount}
             ingredients_data.append(ingredient_data)
         representation['ingredients'] = ingredients_data
-
         tags_data = []
         for tag in instance.tags.all():
             tag_data = {
@@ -74,12 +81,10 @@ class RecipeSerializer(serializers.ModelSerializer):
             }
             tags_data.append(tag_data)
         representation['tags'] = tags_data
-
         return representation
 
     def get_is_favorited(self, obj):
         user = self.context['request'].user
-
         if user.is_authenticated:
             is_favorited = (Favorite.objects.filter(user=user, recipe=obj)
                             .exists())
@@ -88,7 +93,6 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def get_is_in_shopping_cart(self, obj):
         user = self.context['request'].user
-
         if user.is_authenticated:
             is_in_shopping_cart = (ShoppingList.objects
                                    .filter(user=user, recipe=obj).exists())
@@ -126,7 +130,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     def validate_ingredients(self, value):
         for ingredient_data in value:
             amount = ingredient_data.get('amount', 0)
-            if amount > 10000:
+            if amount > MAX_AMOUNT:
                 raise serializers.ValidationError(
                     'Количество ингредиента не должно превышать 10000.')
         if not value:
@@ -158,16 +162,13 @@ class RecipeSerializer(serializers.ModelSerializer):
                 missing_fields.append('tags')
             if 'ingredients' not in request.data:
                 missing_fields.append('ingredients')
-
             if missing_fields:
                 raise serializers.ValidationError(
                     {field: "Это поле обязательно."
                      for field in missing_fields})
-
         if 'cooking_time' in data and data['cooking_time'] < 1:
             raise serializers.ValidationError(
                 {"cooking_time": "Время приготовления не должно быть нулевым"})
-
         return data
 
     @transaction.atomic
@@ -200,7 +201,6 @@ class RecipeSerializer(serializers.ModelSerializer):
             RecipeIngredient.objects.create(recipe=instance,
                                             ingredient=ingredient,
                                             amount=amount)
-
         return instance
 
 

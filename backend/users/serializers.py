@@ -6,6 +6,8 @@ from rest_framework import serializers
 from .models import UserFollow
 from recipes.models import Recipe
 
+MAX_LENGTH = 150
+
 User = get_user_model()
 
 
@@ -44,11 +46,11 @@ class CustomUserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True,
                                      validators=[validate_password,
                                                  MaxLengthValidator(150)])
-    first_name = serializers.CharField(required=True, max_length=150)
-    last_name = serializers.CharField(required=True, max_length=150)
+    first_name = serializers.CharField(required=True, max_length=MAX_LENGTH)
+    last_name = serializers.CharField(required=True, max_length=MAX_LENGTH)
     username = serializers.CharField(
         required=True,
-        max_length=150,
+        max_length=MAX_LENGTH,
         validators=[RegexValidator(
             regex=r'^[\w.@+-]+\Z',
             message="Username must consist of letters, digits, or @/./+/-/_."

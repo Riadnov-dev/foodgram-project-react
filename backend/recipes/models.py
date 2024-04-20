@@ -4,9 +4,12 @@ from django.conf import settings
 from ingredients.models import Ingredient
 from tags.models import Tag
 
+MAX_LENGTH = 200
+
 
 class RecipeIngredient(models.Model):
-    recipe = models.ForeignKey('Recipe', related_name='recipe_ingredients',
+    recipe = models.ForeignKey('Recipe',
+                               related_name='recipe_ingredients',
                                on_delete=models.CASCADE)
     ingredient = models.ForeignKey(Ingredient,
                                    related_name='ingredient_recipes',
@@ -21,7 +24,7 @@ class Recipe(models.Model):
     author = models.ForeignKey(settings.AUTH_USER_MODEL,
                                on_delete=models.CASCADE,
                                related_name='recipes')
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=MAX_LENGTH)
     image = models.ImageField(upload_to='recipes/')
     text = models.TextField()
     tags = models.ManyToManyField(Tag, related_name='recipes')

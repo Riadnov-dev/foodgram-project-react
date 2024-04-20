@@ -10,15 +10,9 @@ from .models import UserFollow
 from .permissions import IsAuthenticatedAndOwner
 from .serializers import CustomUserSerializer, UserSubscriptionSerializer
 from .pagination import LimitPageNumberPagination
+from foodgram.utils import validate_pk
 
 User = get_user_model()
-
-
-def validate_pk(pk):
-    try:
-        return int(pk)
-    except ValueError:
-        raise ValidationError('Invalid ID format. ID must be an integer.')
 
 
 class CustomUserViewSet(DjoserUserViewSet):
