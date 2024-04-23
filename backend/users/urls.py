@@ -6,10 +6,10 @@ from .views import CustomUserViewSet
 
 
 router = DefaultRouter()
-router.register(r'users', CustomUserViewSet)
+router.register(r"users", CustomUserViewSet)
 
 
 urlpatterns = [
-    path('', include(router.urls)),
-    path('auth/', include(auth_urlpatterns)),
+    path("", include(router.urls)),
+    path("auth/", include(auth_urlpatterns)),
 ]

@@ -5,14 +5,14 @@ from .views import RecipeViewSet, ShoppingCartView, FavoriteView
 
 
 router = DefaultRouter()
-router.register('', RecipeViewSet, basename='recipes')
+router.register("", RecipeViewSet, basename="recipes")
 
 urlpatterns = [
-    path('', include(router.urls)),
-    path('<int:recipe_pk>/shopping_cart/',
-         ShoppingCartView.as_view(),
-         name='shopping_cart'),
-    path('<int:recipe_pk>/favorite/',
-         FavoriteView.as_view(),
-         name='favorite'),
+    path("", include(router.urls)),
+    path(
+        "<int:recipe_pk>/shopping_cart/",
+        ShoppingCartView.as_view(),
+        name="shopping_cart",
+    ),
+    path("<int:recipe_pk>/favorite/", FavoriteView.as_view(), name="favorite"),
 ]

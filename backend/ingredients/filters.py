@@ -4,8 +4,8 @@ from .models import Ingredient
 
 
 class IngredientFilter(filters.FilterSet):
-    name = filters.CharFilter(lookup_expr='icontains')
+    name = filters.CharFilter(lookup_expr="icontains")
 
     class Meta:
         model = Ingredient
-        fields = ['name']
+        fields = ["name"]

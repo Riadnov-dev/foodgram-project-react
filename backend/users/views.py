@@ -21,110 +21,138 @@ class CustomUserViewSet(DjoserUserViewSet):
     pagination_class = LimitPageNumberPagination
 
     def get_permissions(self):
-        if self.action in ['update', 'partial_update', 'destroy']:
+        if self.action in ["update", "partial_update", "destroy"]:
             permission_classes = [IsAuthenticatedAndOwner]
-        elif self.action in ['create', 'list', 'retrieve']:
+        elif self.action in ["create", "list", "retrieve"]:
             permission_classes = [permissions.AllowAny]
         else:
             permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
 
     def get_queryset(self):
-        if self.action == 'subscriptions':
+        if self.action == "subscriptions":
             user = self.request.user
-            return UserFollow.objects.filter(
-                user_from=user).select_related('user_to').order_by('-created')
-        elif self.action == 'list':
+            return (
+                UserFollow.objects.filter(user_from=user)
+                .select_related("user_to")
+                .order_by("-created")
+            )
+        elif self.action == "list":
             return User.objects.all()
         return super().get_queryset()
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         if request.user.id != instance.id:
-            return Response({"detail": "You do not have permission."},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "You do not have permission."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
-        return Response({"detail": "Method 'PATCH' not allowed."},
-                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response(
+            {"detail": "Method 'PATCH' not allowed."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         if request.user.id != instance.id:
-            return Response({"detail": "You do not have permission."},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "You do not have permission."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return super().destroy(request, *args, **kwargs)
 
-    @action(detail=False,
-            methods=['get'],
-            permission_classes=[permissions.IsAuthenticated],
-            url_path='subscriptions')
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[permissions.IsAuthenticated],
+        url_path="subscriptions",
+    )
     def subscriptions(self, request):
-        user_ids = UserFollow.objects.filter(
-            user_from=request.user).values_list('user_to', flat=True)
+        user_ids = UserFollow.objects.filter(user_from=request.user
+                                             ).values_list(
+            "user_to", flat=True
+        )
         users = User.objects.filter(id__in=user_ids)
-        recipes_limit = request.query_params.get('recipes_limit')
+        recipes_limit = request.query_params.get("recipes_limit")
         try:
-            recipes_limit = (int(recipes_limit
-                                 ) if recipes_limit is not None else None)
+            recipes_limit = int(
+                recipes_limit) if recipes_limit is not None else None
         except ValueError:
             recipes_limit = None
         page = self.paginate_queryset(users)
         if page is not None:
             serializer = UserSubscriptionSerializer(
-                page, many=True, context={'request': request,
-                                          'recipes_limit': recipes_limit})
+                page,
+                many=True,
+                context={"request": request, "recipes_limit": recipes_limit},
+            )
             return self.get_paginated_response(serializer.data)
         serializer = UserSubscriptionSerializer(
-            users, many=True, context={'request': request,
-                                       'recipes_limit': recipes_limit})
+            users,
+            many=True,
+            context={"request": request, "recipes_limit": recipes_limit},
+        )
         return Response(serializer.data)
 
-    @action(detail=True,
-            methods=['post', 'delete'],
-            permission_classes=[IsAuthenticated],
-            url_path='subscribe')
+    @action(
+        detail=True,
+        methods=["post", "delete"],
+        permission_classes=[IsAuthenticated],
+        url_path="subscribe",
+    )
     def manage_subscription(self, request, id=None):
         try:
             pk = validate_pk(id)
             user_to = User.objects.get(pk=pk)
         except ValidationError as e:
-            return Response({'detail': str(e)},
+            return Response({"detail": str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
-            return Response({"detail": "User not found."},
-                            status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND
+            )
         if user_to == request.user:
             return Response(
                 {"detail": "You cannot subscribe or unsubscribe to yourself."},
-                status=status.HTTP_400_BAD_REQUEST)
-        if request.method == 'POST':
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if request.method == "POST":
             return self.handle_create_subscription(request, user_to)
         return self.handle_delete_subscription(request, user_to)
 
     def handle_create_subscription(self, request, user_to):
-        _, created = UserFollow.objects.get_or_create(user_from=request.user,
-                                                      user_to=user_to)
+        _, created = UserFollow.objects.get_or_create(
+            user_from=request.user, user_to=user_to
+        )
         if created:
-            recipes_limit = request.query_params.get('recipes_limit')
-            context = {'request': request}
+            recipes_limit = request.query_params.get("recipes_limit")
+            context = {"request": request}
             if recipes_limit:
                 try:
-                    context['recipes_limit'] = int(recipes_limit)
+                    context["recipes_limit"] = int(recipes_limit)
                 except ValueError:
                     pass
             return Response(
                 UserSubscriptionSerializer(user_to, context=context).data,
-                status=status.HTTP_201_CREATED)
-        return Response({"detail": "Already subscribed."},
-                        status=status.HTTP_400_BAD_REQUEST)
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(
+            {"detail": "Already subscribed."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     def handle_delete_subscription(self, request, user_to):
-        subscription = UserFollow.objects.filter(user_from=request.user,
-                                                 user_to=user_to)
+        subscription = UserFollow.objects.filter(
+            user_from=request.user, user_to=user_to
+        )
         if subscription.exists():
             subscription.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response({"detail": "Subscription not found."},
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "Subscription not found."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
