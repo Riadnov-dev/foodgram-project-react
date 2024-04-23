@@ -50,7 +50,7 @@ class RecipeIngredientWriteSerializer(serializers.ModelSerializer):
 
 
 class RecipeReadSerializer(serializers.ModelSerializer):
-    '''Пока что на сервере не заменял.'''
+    '''Пока что на сервер не деплоил.'''
     '''Отправляю чисто код на ревью.'''
     '''Дабы после всех исправлений уже залить на сервер.'''
     image = Base64ImageField(max_length=None, use_url=True)
