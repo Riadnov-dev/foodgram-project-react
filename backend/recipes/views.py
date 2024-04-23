@@ -12,17 +12,23 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .filters import RecipeFilter
 from .models import Recipe, ShoppingList, Favorite, RecipeIngredient
 from .permissions import IsOwnerOrReadOnly
-from .serializers import RecipeSerializer, SimpleRecipeSerializer
+from .serializers import (SimpleRecipeSerializer,
+                          RecipeReadSerializer,
+                          RecipeWriteSerializer)
 from .pagination import LimitPageNumberPagination
 from foodgram.utils import validate_pk
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
-    serializer_class = RecipeSerializer
     pagination_class = LimitPageNumberPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
+
+    def get_serializer_class(self):
+        if self.action == 'list' or self.action == 'retrieve':
+            return RecipeReadSerializer
+        return RecipeWriteSerializer
 
     def get_serializer_context(self):
         context = super(RecipeViewSet, self).get_serializer_context()

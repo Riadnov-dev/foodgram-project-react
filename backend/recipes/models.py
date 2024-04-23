@@ -29,7 +29,8 @@ class Recipe(models.Model):
     text = models.TextField()
     tags = models.ManyToManyField(Tag, related_name='recipes')
     cooking_time = models.PositiveIntegerField()
-    ingredients = models.ManyToManyField(Ingredient, through=RecipeIngredient,
+    ingredients = models.ManyToManyField(Ingredient,
+                                         through=RecipeIngredient,
                                          related_name='recipes')
     created_at = models.DateTimeField(auto_now_add=True)
 

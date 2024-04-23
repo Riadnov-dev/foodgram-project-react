@@ -43,9 +43,10 @@ class UserFollowSerializer(serializers.ModelSerializer):
 
 
 class CustomUserCreateSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True,
+    password = serializers.CharField(write_only=True,
+                                     required=True,
                                      validators=[validate_password,
-                                                 MaxLengthValidator(150)])
+                                                 MaxLengthValidator(MAX_LENGTH)])
     first_name = serializers.CharField(required=True, max_length=MAX_LENGTH)
     last_name = serializers.CharField(required=True, max_length=MAX_LENGTH)
     username = serializers.CharField(
