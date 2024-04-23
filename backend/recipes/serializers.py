@@ -155,8 +155,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
     def validate(self, data):
         request = self.context.get("request")
         if request and request.method == "PATCH":
-            if ("tags" not in request.data or
-                    "recipe_ingredients" not in request.data):
+            if ("tags" not in request.data
+                    or "recipe_ingredients" not in request.data):
                 existing_recipe = self.instance
                 if (
                     not existing_recipe.tags.exists()
