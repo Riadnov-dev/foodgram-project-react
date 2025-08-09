@@ -152,7 +152,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-—or via Docker (if you configured a test target in compose workflow).
+— or via Docker (if you configured a test target in compose workflow).
 
 ### 🐳 Images & CI/CD
 Docker images (as configured in compose):
