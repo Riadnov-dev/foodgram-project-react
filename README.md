@@ -1,50 +1,201 @@
-# praktikum_new_diplom
-Foodgram Project
-О проекте
-Foodgram — это веб-приложение для публикации и обмена рецептами. Проект включает в себя бэкенд на Django и Django Rest Framework (DRF) для API, фронтенд на React, а также настроенный CI/CD процесс с использованием Docker и GitHub Actions для автоматизации тестирования и деплоя.
-
-Установка
-Предварительные требования
-Убедитесь, что у вас установлены Docker и Docker Compose.
-
-Настройка переменных окружения
-Перед запуском проекта необходимо настроить переменные окружения. Создайте файл .env в корне проекта с следующими переменными:
-
-POSTGRES_DB: имя базы данных PostgreSQL.
-POSTGRES_USER: имя пользователя для доступа к базе данных PostgreSQL.
-POSTGRES_PASSWORD: пароль для доступа к базе данных PostgreSQL.
-DB_HOST: хост базы данных (для Docker-контейнеров обычно используется имя сервиса, например, db).
-DB_PORT: порт, на котором работает база данных (для PostgreSQL обычно 5432).
-DJANGO_SECRET_KEY: секретный ключ для экземпляра Django.
-DJANGO_ALLOWED_HOSTS: список хостов/доменов, которым разрешено обслуживать этот сайт, разделенных запятыми.
-Запуск проекта
-Клонируйте репозиторий на локальную машину:
+# 🍳 Foodgram — React + Django + Docker
+A full-stack platform to publish, discover, and manage recipes.
+Backend (Django REST), frontend (React SPA), PostgreSQL, Nginx reverse proxy, Dockerized multi-service setup, and CI/CD via GitHub Actions.
 
 
+
+
+
+
+
+
+
+## 📌 Description
+Foodgram lets users publish recipes, browse by tags/ingredients, manage favorites, and build a shopping list.
+The stack is production-oriented: containerized services, static/media separation, and a reverse proxy in front.
+
+Key features
+
+🟢 Django REST backend (clean apps: ingredients, tags, recipes, users)
+
+🎨 React SPA frontend (modern, responsive UX)
+
+🗄️ PostgreSQL persistence
+
+🛡️ Authentication & permissions (token-based; see API docs in your build)
+
+🖼️ Image uploads (media volume)
+
+🏷️ Tags & ingredients, search and filtering
+
+🛒 Favorites & shopping cart generation
+
+🔀 Nginx reverse proxy in front of services
+
+🐳 Dockerized multi-service deployment (compose)
+
+🔁 CI/CD pipeline (build, test, push images, optional deploy)
+
+## 🧰 Tech Stack
+
+[![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-4.x-092E20?logo=django)](https://www.djangoproject.com/)
+[![Django REST Framework](https://img.shields.io/badge/DRF-API-ff1709?logo=django)](https://www.django-rest-framework.org/)
+[![React](https://img.shields.io/badge/React-18%2B-61DAFB?logo=react)](https://react.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-336791?logo=postgresql)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker)](https://www.docker.com/)
+[![Nginx](https://img.shields.io/badge/Nginx-reverse--proxy-009639?logo=nginx)](https://nginx.org/)
+[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088FF?logo=githubactions)](https://github.com/features/actions)
+
+
+
+
+
+
+
+
+### 🚀 Quick Start (Docker, production-like)
+Clone the repo
+```
 git clone https://github.com/Riadnov-dev/foodgram-project-react.git
-Перейдите в директорию проекта:
+```
 
-
+Enter the project directory
+```
 cd foodgram-project-react
-Запустите проект с помощью Docker Compose:
+```
 
-docker-compose up --build
-Эта команда соберет и запустит все необходимые контейнеры.
+Create a .env in the project root (see below)
 
-Использование
-После запуска проекта вы можете обратиться к веб-интерфейсу Foodgram по адресу http://localhost:8000 (или другому, если вы изменили настройки портов).
+Build and run all services
+```
+docker-compose up -d --build
+```
 
-CI/CD
-CI/CD процесс настроен с использованием GitHub Actions. При каждом пуше в ветку main:
+Open the app (served by Nginx gateway)
+```
+Frontend → http://localhost:7000
+API base → http://localhost:7000/api/
+```
 
-Запускается тестирование проекта.
-В случае успешного прохождения тестов, образы проекта обновляются на Docker Hub.
-На удаленном сервере запускаются контейнеры из обновленных образов.
-Выполняются команды для сборки статики и миграций.
+Stop the stack
+```
+docker-compose down
+```
 
-Детальную конфигурацию GitHub Actions можно найти в файле .github/workflows/main.yml.
+### 🔐 Environment (.env example)
+```
+POSTGRES_DB=foodgram
+POSTGRES_USER=foodgram_user
+POSTGRES_PASSWORD=foodgram_pass
+DB_HOST=db
+DB_PORT=5432
+DJANGO_SECRET_KEY=your_secret_key
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+```
 
-Админка
-Email: nriadnov@gmail.com
-Password: 123456789ln
-Domain: https://xahtep.freeddns.org/
+(Adjust/add CORS/CSRF variables if your setup requires them.)
+
+### 🌱 Initial Data (ingredients import)
+The backend includes a management command to import ingredients from JSON.
+In this compose setup ingredients.json is mounted into the backend at /app/ingredients.json.
+
+Run migrations
+```
+docker-compose exec backend python manage.py migrate
+```
+
+Import ingredients
+```
+docker-compose exec backend python manage.py import_ingredients /app/ingredients.json
+```
+
+Collect static (if needed)
+```
+docker-compose exec backend python manage.py collectstatic --noinput
+```
+
+Create superuser (optional)
+```
+docker-compose exec backend python manage.py createsuperuser
+```
+
+### 📚 API
+Authentication is token-based (implementation depends on your build; see API docs).
+Common endpoints include:
+```
+
+GET /api/recipes/ — list recipes
+
+POST /api/recipes/ — create recipe
+
+GET /api/ingredients/ — list/search ingredients
+
+GET /api/tags/ — list tags
+
+POST /api/recipes/{id}/favorite — add to favorites
+
+GET /api/recipes/download_shopping_cart — generate shopping list
+```
+
+Auth endpoints — see your configured auth (e.g., token/JWT)
+
+If Swagger/Redoc is enabled in your build, the docs are typically served under /api/docs/ or /redoc/.
+
+### 🧪 Tests
+
+From the backend directory (local)
+```
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pytest
+```
+
+—or via Docker (if you configured a test target in compose workflow).
+
+### 🐳 Images & CI/CD
+Docker images (as configured in compose):
+```
+
+Backend: nriadnov29/foodgram_backend:latest
+
+Frontend: nriadnov29/foodgram_frontend:latest
+
+Gateway (Nginx): nriadnov29/foodgram_gateway:latest
+
+GitHub Actions (on push) typically:
+
+run backend/frontend tests
+```
+
+build images and push to Docker Hub
+
+optionally deploy to a remote host if secrets are present
+
+Workflow config: .github/workflows/main.yml (or your workflow file)
+
+### 📂 Project Structure
+```
+backend/
+├─ foodgram/ (project: settings, urls, utils, wsgi, asgi)
+├─ ingredients/ (management, filters, models, serializers, views, urls, migrations)
+├─ recipes/ (filters, models, permissions, pagination, serializers, views, urls, migrations, exception_handler)
+├─ tags/ (forms, validators, models, serializers, views, urls, migrations)
+├─ users/
+├─ requirements.txt, Dockerfile, manage.py
+
+frontend/ — React SPA (public, src, Dockerfile)
+infra/ — infra configs (if used)
+postman-collection/ — API collection (optional)
+docker-compose.yml, docker-compose.production.yml
+.nginx/ or nginx/ — proxy config (Dockerfile, nginx.conf)
+.gitignore, pytest.ini, setup.cfg, etc.
+
+```
+
+### 👤 Author
+
+Nikita Riadnov
+
+GitHub: https://github.com/Riadnov-dev
