@@ -1,51 +1,44 @@
-# 🍳 Foodgram — React + Django + Docker
-A full-stack platform to publish, discover, and manage recipes.
-Backend (Django REST), frontend (React SPA), PostgreSQL, Nginx reverse proxy, Dockerized multi-service setup, and CI/CD via GitHub Actions.
+# 🍳 Foodgram — Recipe Sharing Platform
 
+A **full-stack web application** to publish, discover, and manage recipes — built with **Django REST API**, **React SPA frontend**, **PostgreSQL**, **Docker**, **Nginx**, and **CI/CD**.
 
+---
 
+## 📌 About the Project
 
+**Foodgram** is a production-ready recipe sharing platform where users can:  
 
+- Publish and edit **recipes**  
+- Browse recipes by **tags** or **ingredients**  
+- Add recipes to **favorites**  
+- Generate a **shopping cart** with ingredients  
+- Upload and store **images**  
+- Manage authentication and permissions via tokens  
 
+The stack follows best practices with **Dockerized services**, **media/static separation**, and an **Nginx reverse proxy**. A CI/CD pipeline ensures automated build, testing, and deployment.  
 
-
-
-## 📌 Description
-Foodgram lets users publish recipes, browse by tags/ingredients, manage favorites, and build a shopping list.
-The stack is production-oriented: containerized services, static/media separation, and a reverse proxy in front.
-
-Key features
-
-🟢 Django REST backend (clean apps: ingredients, tags, recipes, users)
-
-🎨 React SPA frontend (modern, responsive UX)
-
-🗄️ PostgreSQL persistence
-
-🛡️ Authentication & permissions (token-based; see API docs in your build)
-
-🖼️ Image uploads (media volume)
-
-🏷️ Tags & ingredients, search and filtering
-
-🛒 Favorites & shopping cart generation
-
-🔀 Nginx reverse proxy in front of services
-
-🐳 Dockerized multi-service deployment (compose)
-
-🔁 CI/CD pipeline (build, test, push images, optional deploy)
+---
 
 ## 🧰 Tech Stack
 
-[![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)](https://www.python.org/)
-[![Django](https://img.shields.io/badge/Django-4.x-092E20?logo=django)](https://www.djangoproject.com/)
-[![Django REST Framework](https://img.shields.io/badge/DRF-API-ff1709?logo=django)](https://www.django-rest-framework.org/)
-[![React](https://img.shields.io/badge/React-18%2B-61DAFB?logo=react)](https://react.dev/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-336791?logo=postgresql)](https://www.postgresql.org/)
-[![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker)](https://www.docker.com/)
-[![Nginx](https://img.shields.io/badge/Nginx-reverse--proxy-009639?logo=nginx)](https://nginx.org/)
-[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088FF?logo=githubactions)](https://github.com/features/actions)
+<img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white"/> <img src="https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white"/> <img src="https://img.shields.io/badge/DRF-ff1709?style=for-the-badge&logo=django&logoColor=white"/> <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black"/> <img src="https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white"/> <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white"/> <img src="https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white"/> <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white"/>
+
+---
+
+## ✨ Features
+
+- 🟢 **Django REST backend** with modular apps (ingredients, tags, recipes, users)  
+- 🎨 **React SPA frontend** with responsive UI  
+- 🗄️ **PostgreSQL** for persistent storage  
+- 🛡️ **Authentication & permissions** with token-based access  
+- 🖼️ **Image upload & media storage**  
+- 🏷️ **Tags & ingredient search/filtering**  
+- 🛒 **Favorites & shopping cart generation**  
+- 🔀 **Nginx reverse proxy** for serving services  
+- 🐳 **Dockerized multi-service deployment** with Compose  
+- 🔁 **CI/CD pipeline** for automated testing & deployment  
+
+---
 
 
 
